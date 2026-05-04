@@ -1,0 +1,56 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: pdd-db
+    environment:
+      POSTGRES_DB: pdd
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pdd"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pdd_db_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: pdd-backend
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      EMBEDDINGS_MODEL: ${EMBEDDINGS_MODEL:-text-embedding-3-small}
+      VECTOR_DB_URL: postgresql://postgres:postgres@db:5432/pdd
+      VECTOR_COLLECTION_NAME: ${VECTOR_COLLECTION_NAME:-pdd_clauses}
+      TOP_K: ${TOP_K:-3}
+      LATENCY_BUDGET_MS: ${LATENCY_BUDGET_MS:-3000}
+      GUARDRAIL_RECALL_FIRST: ${GUARDRAIL_RECALL_FIRST:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()\""]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: pdd-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pdd_db_data:
