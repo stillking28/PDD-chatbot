@@ -11,12 +11,6 @@ from app.schemas import PddClause
 
 
 class VectorStoreClient:
-    """
-    Minimal vector interface scaffold.
-    Uses lexical scoring fallback for local development when no DB is configured.
-    Replace internals with pgvector or Pinecone implementation in production.
-    """
-
     def __init__(self, db_url: str | None = None) -> None:
         self._rows: list[PddClause] = []
         self.db_url = db_url

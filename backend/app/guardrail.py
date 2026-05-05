@@ -9,11 +9,6 @@ from app.schemas import TieredAnswer
 
 
 class GuardrailService:
-    """
-    Recall-first guardrail:
-    If there is any signal of uncertainty or missing source, block.
-    False positives are acceptable by design.
-    """
 
     BLOCK_PATTERNS = [
         "возможно",
@@ -51,7 +46,6 @@ source_url={source_url}
             )
 
     def verify(self, answer: TieredAnswer) -> tuple[bool, str | None]:
-        # Rule-based high-recall blocker.
         if not answer.source_clause_id or not answer.source_url:
             return False, "missing_source"
 
@@ -63,8 +57,6 @@ source_url={source_url}
             return False, "explanation_too_short"
 
         if settings.guardrail_recall_first:
-            # Model-based binary check (hybrid guardrail).
-            # Recall-first policy: on any model uncertainty/error -> BLOCK.
             if self.classifier is None:
                 return False, "guardrail_classifier_unavailable"
             try:
