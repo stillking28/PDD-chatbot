@@ -4,6 +4,7 @@ pydantic
 pydantic-settings
 langchain
 langchain-openai
+langchain-groq
 langchain-postgres
 psycopg[binary]
 pgvector

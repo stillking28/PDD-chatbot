@@ -4,6 +4,7 @@ from cachetools import TTLCache
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 
 from app.config import settings
 from app.schemas import PddClause, TieredAnswer
@@ -16,10 +17,9 @@ class RagService:
         self.cache = TTLCache(maxsize=500, ttl=600)
         self.answer_cache = TTLCache(maxsize=500, ttl=600)
         self.generator = None
-        if settings.openai_api_key:
-            self.generator = (
-                ChatPromptTemplate.from_template(
-                    """Ты — помощник по ПДД. Отвечай ТОЛЬКО на основе контекста.
+        
+        prompt = ChatPromptTemplate.from_template(
+            """Ты — помощник по ПДД. Отвечай ТОЛЬКО на основе контекста.
 Если в контексте нет точного правила, верни safe_block=true.
 Сгенерируй JSON строго по схеме:
 {{
@@ -32,15 +32,26 @@ class RagService:
 Вопрос: {question}
 Контекст: {context}
 """
-                )
-                | ChatOpenAI(
-                    model=settings.openai_model,
-                    api_key=settings.openai_api_key,
-                    temperature=0,
-                    timeout=1.2,
-                )
-                | StrOutputParser()
+        )
+        
+        llm = None
+        if settings.llm_provider == "groq" and settings.groq_api_key:
+            llm = ChatGroq(
+                model=settings.groq_model,
+                api_key=settings.groq_api_key,
+                temperature=0,
+                timeout=1.2,
             )
+        elif settings.llm_provider == "openai" and settings.openai_api_key:
+            llm = ChatOpenAI(
+                model=settings.openai_model,
+                api_key=settings.openai_api_key,
+                temperature=0,
+                timeout=1.2,
+            )
+        
+        if llm is not None:
+            self.generator = prompt | llm | StrOutputParser()
 
     def retrieve(self, question: str, language: str = "ru") -> list[PddClause]:
         key = f"{language}:{question.strip().lower()}"

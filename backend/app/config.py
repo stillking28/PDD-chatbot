@@ -5,6 +5,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     app_name: str = "PDD ChatBot API"
+    llm_provider: str = "groq"
+    groq_api_key: str | None = None
+    groq_model: str = "mixtral-8x7b-32768"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     embeddings_model: str = "text-embedding-3-small"

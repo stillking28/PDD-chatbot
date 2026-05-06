@@ -3,6 +3,7 @@ import json
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 
 from app.config import settings
 from app.schemas import TieredAnswer
@@ -20,10 +21,9 @@ class GuardrailService:
 
     def __init__(self) -> None:
         self.classifier = None
-        if settings.openai_api_key:
-            self.classifier = (
-                ChatPromptTemplate.from_template(
-                    """Ты классификатор безопасности ответов ПДД.
+        
+        prompt = ChatPromptTemplate.from_template(
+            """Ты классификатор безопасности ответов ПДД.
 Класс 1 = BLOCK (галлюцинация/опасность/неточность).
 Класс 0 = ALLOW.
 Возвращай только JSON:
@@ -35,15 +35,27 @@ simple_explanation={simple_explanation}
 source_clause_id={source_clause_id}
 source_url={source_url}
 """
-                )
-                | ChatOpenAI(
-                    model=settings.openai_model,
-                    api_key=settings.openai_api_key,
-                    temperature=0,
-                    timeout=0.8,
-                )
-                | StrOutputParser()
+        )
+        
+        # Initialize LLM based on provider
+        llm = None
+        if settings.llm_provider == "groq" and settings.groq_api_key:
+            llm = ChatGroq(
+                model=settings.groq_model,
+                api_key=settings.groq_api_key,
+                temperature=0,
+                timeout=0.8,
             )
+        elif settings.llm_provider == "openai" and settings.openai_api_key:
+            llm = ChatOpenAI(
+                model=settings.openai_model,
+                api_key=settings.openai_api_key,
+                temperature=0,
+                timeout=0.8,
+            )
+        
+        if llm is not None:
+            self.classifier = prompt | llm | StrOutputParser()
 
     def verify(self, answer: TieredAnswer) -> tuple[bool, str | None]:
         if not answer.source_clause_id or not answer.source_url:
